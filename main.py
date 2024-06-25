@@ -1,4 +1,5 @@
 import pygame
+from pgu import gui
 import sys
 
 pygame.init()
@@ -37,7 +38,7 @@ class Ball:
         self.radius = radius
         self.speedx = speedx
         self.speedy = speedy
-        self.brect = None
+        self.ballrect = None
 
     def ballmove(self, p):
         self.y += self.speedy
@@ -49,16 +50,9 @@ class Ball:
         if self.x >= screen_x - self.radius or self.x <= self.radius:
             self.speedx = -self.speedx
 
-    def rest(self, p):
-        if self.y >= screen_y:
-            self.x = 400
-            self.y = 355
-            p.x = 350
-            p.y = 370
-
     def draw(self, screen):
-        self.brect = pygame.Rect(self.x - self.radius, self.y - self.radius, self.radius * 2, self.radius * 2)
-        pygame.draw.circle(screen, "yellow", self.brect.center, self.radius)
+        self.ballrect = pygame.Rect(self.x - self.radius, self.y - self.radius, self.radius * 2, self.radius * 2)
+        pygame.draw.circle(screen, "yellow", self.ballrect.center, self.radius)
 
 
 class Brick:
@@ -78,19 +72,52 @@ class Brick:
                 if (x <= screen_x and x >= 0 and y <= screen_y):
                     brick = pygame.Rect(x, y, self.width, self.height)
                     bricks.append(brick)
+
         for brick in bricks:
             pygame.draw.rect(screen, (184, 134, 11), brick)
         return bricks
 
 
 def check_colision(brick, ball):
-    # ball.get_rect()
-    print(type(brick))
-    print(type(ball))
-
-    if pygame.Rect.colliderect(brick, ball.brect):
+    if pygame.Rect.colliderect(brick, ball.ballrect):
         return True
     return False
+
+def create_popup(screen, clock, bricks):
+
+    if len(bricks) == 0:
+        label = gui.Label("YOU WIN!")
+    else:
+        label = gui.Label("YOU LOSE :( ")
+
+    btn_restart = gui.Button("Restart Game")
+    btn_quit = gui.Button("Quit Game")
+
+    def close_popup(event=None):
+        pygame.quit()
+        sys.exit()
+
+    def restart_game():
+        player1 = Player("gray", 350, 370, 100, 20, 10)
+        brickFactory = Brick("white", 5, 2, 70, 20)
+        bricks = brickFactory.draw_brick(screen)
+        ball = Ball(("Red"), 400, 355, 10, 3, 3)
+        game_loop(screen, clock, player1, bricks, ball)
+        pygame.display.update()
+
+    btn_restart.connect(gui.CLICK, restart_game)
+    btn_quit.connect(gui.CLICK, close_popup)
+    main_table = gui.Table(width=300, height=200)
+    main_table.tr()
+    main_table.td(label, colspan=2)
+    main_table.tr()
+    main_table.td(btn_restart, colspan=1)
+    main_table.td(btn_quit, colspan=1)
+    dialog = gui.Dialog(gui.Label("Game Over"), main_table)
+    dialog.open()
+    app = gui.Desktop()
+    app.init(widget=dialog, screen=screen, area=screen.get_rect())
+    app.run()
 
 
 def game_loop(screen, clock, player1, bricks, ball):
@@ -106,8 +133,12 @@ def game_loop(screen, clock, player1, bricks, ball):
         if keys[pygame.K_LEFT]:
             player1.pl_left()
 
+        if ball.y >= screen_y or len(bricks) == 0:
+            create_popup(screen, clock, bricks)
+            return
+
         ball.ballmove(player1)
-        ball.rest(player1)
+        player_move(player1, ball)
         screen.fill((0, 0, 0))
         ball.draw(screen)
 
@@ -115,12 +146,11 @@ def game_loop(screen, clock, player1, bricks, ball):
             is_colision = check_colision(brick, ball)
             if is_colision:
                 bricks.remove(brick)
-                # ball.x=-ball.speedx
 
-                ball.y-=ball.speedy
+                ball.speedy -= 2 * ball.speedy
+
         for brick in bricks:
             pygame.draw.rect(screen, "red", brick)
-
 
         player1.draw_play(screen)
         pygame.display.flip()
